@@ -176,10 +176,10 @@ public class StartWebAppServer {
 
         servletContextHandler.addServlet(ExampleServlet.class, "/api");
 
-        // "/"はDefaultServletに拾わせ、静的コンテンツもDefaultServletにやらせる
+        // DefaultServlet can handle "/" and static contents
         ServletHolder defaultServletHolder = new ServletHolder("default", DefaultServlet.class);
 
-        // init parameterについては以下
+        // See below.for init parameters
         // http://www.eclipse.org/jetty/javadoc/9.4.12.v20180830/org/eclipse/jetty/servlet/DefaultServlet.html
 
         defaultServletHolder.setInitParameter("resourceBase", System.getProperty("user.dir") + "/htdocs");
@@ -198,7 +198,6 @@ public class StartWebAppServer {
         httpConnector.setPort(PORT);
         jettyServer.setConnectors(new Connector[] { httpConnector });
 
-        if (true) {
             // logging for basic auth
             // org.riversun.jetty.basicauth.LogSetup.enableLogging();
 
@@ -235,8 +234,7 @@ public class StartWebAppServer {
             bash.setWelcomeFiles(servletContextHandler.getWelcomeFiles());
 
             servletContextHandler.setSecurityHandler(bash);
-        }
-
+        
         try {
             jettyServer.start();
             System.out.println("Server started.");
