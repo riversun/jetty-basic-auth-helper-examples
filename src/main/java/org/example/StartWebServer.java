@@ -16,118 +16,95 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.riversun.jetty.basicauth.BasicAuth;
-import org.riversun.jetty.basicauth.BasicAuthLogicCore.SkipBasicAuthCallback;
 import org.riversun.jetty.basicauth.BasicAuthResourceHandler;
-import org.riversun.jetty.basicauth.BasicAuthSecurityHandler;
 
+/**
+ * 
+ * Start web application server.
+ * 
+ * Web server can serve Servlets/static contents with ResourceHandler
+ * 
+ *
+ */
 public class StartWebServer {
 
-	public void start() {
+    public void start() {
 
-		final int PORT = 8080;
+        final int PORT = 8080;
 
-		BasicAuth basicAuth = new BasicAuth.Builder().setRealm("private site")
-				.addUserPath("user1", "pass1", "/*")
-				.addUserPath("user2", "pass2", "/index.html,/api")
-				.addUserPath("user3", "pass3", "/api")// allows only "/api"
-				.addUserPath("user4", "pass4", "/private1/index.html")// allows only "/private1/index.html"
-				.addUserPath("user5", "pass5", "/private1/*")// allows "/private1/" directory
-				.build();
+        BasicAuth basicAuth = new BasicAuth.Builder().setRealm("private site")
+                .addUserPath("user1", "pass1", "/*")
+                .addUserPath("user2", "pass2", "/index.html,/api")
+                .addUserPath("user3", "pass3", "/api")// allows only "/api"
+                .addUserPath("user4", "pass4", "/private1/index.html")// allows only "/private1/index.html"
+                .addUserPath("user5", "pass5", "/private1/*")// allows "/private1/" directory
+                .build();
 
-		ServletContextHandler servletContextHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        ServletContextHandler servletContextHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
 
-		servletContextHandler.addServlet(ExampleServlet.class, "/api");
+        servletContextHandler.addServlet(ExampleServlet.class, "/api");
 
-		final HandlerList handlerList = new HandlerList();
+        final HandlerList handlerList = new HandlerList();
 
-		final BasicAuthResourceHandler resourceHandler = new BasicAuthResourceHandler();
+        // logging for basic auth
+        // org.riversun.jetty.basicauth.LogSetup.enableLogging();
 
-		resourceHandler.setResourceBase(System.getProperty("user.dir") + "/htdocs");
-		resourceHandler.setDirectoriesListed(false);
+        // If you want to use basic authentication,you can use
+        // BasicAuthResourceHandler instead of ResourceHandler.
+        final BasicAuthResourceHandler resourceHandler = new BasicAuthResourceHandler();
 
-		resourceHandler.setWelcomeFiles(new String[] { "index.html" });
-		resourceHandler.setCacheControl("no-store,no-cache,must-revalidate");
+        resourceHandler.setResourceBase(System.getProperty("user.dir") + "/htdocs");
+        resourceHandler.setDirectoriesListed(false);
 
-		resourceHandler.setBasicAuth(basicAuth);
-		resourceHandler.setRetryBasicAuth(true);
+        resourceHandler.setWelcomeFiles(new String[] { "index.html" });
+        resourceHandler.setCacheControl("no-store,no-cache,must-revalidate");
 
-		resourceHandler.addRetryBasicAuthExcludedPath("/favicon.ico");
+        resourceHandler.setBasicAuth(basicAuth);
+        resourceHandler.setRetryBasicAuth(true);
 
-		handlerList.addHandler(resourceHandler);
-		handlerList.addHandler(servletContextHandler);
+        resourceHandler.addRetryBasicAuthExcludedPath("/favicon.ico");
 
-		final Server jettyServer = new Server();
-		jettyServer.setHandler(handlerList);
+        handlerList.addHandler(resourceHandler);
+        handlerList.addHandler(servletContextHandler);
 
-		final HttpConfiguration httpConfig = new HttpConfiguration();
-		httpConfig.setSendServerVersion(false);
+        final Server jettyServer = new Server();
+        jettyServer.setHandler(handlerList);
 
-		final HttpConnectionFactory httpConnFactory = new HttpConnectionFactory(httpConfig);
-		final ServerConnector httpConnector = new ServerConnector(jettyServer, httpConnFactory);
-		httpConnector.setPort(PORT);
-		jettyServer.setConnectors(new Connector[] { httpConnector });
+        final HttpConfiguration httpConfig = new HttpConfiguration();
+        httpConfig.setSendServerVersion(false);
 
-		if (true) {
-			// Enabling basic authentication
-			BasicAuthSecurityHandler bash = new BasicAuthSecurityHandler();
+        final HttpConnectionFactory httpConnFactory = new HttpConnectionFactory(httpConfig);
+        final ServerConnector httpConnector = new ServerConnector(jettyServer, httpConnFactory);
+        httpConnector.setPort(PORT);
+        jettyServer.setConnectors(new Connector[] { httpConnector });
 
-			bash.setBasicAuth(basicAuth);
+        try {
+            jettyServer.start();
+            System.out.println("Server started.");
+            jettyServer.join();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-			// If the user-A who has already passed the BASIC authentication for page-A.
-			// Then the user-A who doesn't have the permission for page-B tries to access
-			// page-B.
-			//
-			// True:Show BASIC authentication dialog again for the user who has correct
-			// permission for page-B.
-			//
-			// False:Show error page that shows FORBIDDEN, "You don't have permission to
-			// access."
-			//
-			bash.setRetryBasicAuth(true);
+    @SuppressWarnings("serial")
+    public static class ExampleServlet extends HttpServlet {
 
-			bash.addRetryBasicAuthExcludedPath("/favicon.ico");
+        @Override
+        protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
-			// Set preprocess callback.
-			bash.setSkipBasicAuthCallback(new SkipBasicAuthCallback() {
+            final String CONTENT_TYPE = "text/plain; charset=UTF-8";
+            resp.setContentType(CONTENT_TYPE);
 
-				@Override
-				public boolean checkSkipBasicAuth(HttpServletRequest req) {
-					// true:skip basic authentication
-					// false:process basic authentication
-					return false;
-				}
-			});
+            final PrintWriter out = resp.getWriter();
+            out.println("OK");
+            out.close();
+        }
 
-			servletContextHandler.setSecurityHandler(bash);
-		}
+    }
 
-		try {
-			jettyServer.start();
-			System.out.println("Server started.");
-			jettyServer.join();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	@SuppressWarnings("serial")
-	public static class ExampleServlet extends HttpServlet {
-
-		@Override
-		protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-
-			final String CONTENT_TYPE = "text/plain; charset=UTF-8";
-			resp.setContentType(CONTENT_TYPE);
-
-			final PrintWriter out = resp.getWriter();
-			out.println("OK");
-			out.close();
-		}
-
-	}
-
-	public static void main(String[] args) {
-		new StartWebServer().start();
-	}
+    public static void main(String[] args) {
+        new StartWebServer().start();
+    }
 
 }
